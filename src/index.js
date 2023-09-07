@@ -89,9 +89,7 @@ class Wigit extends EventEmitter {
 		this._checkDirIsEmpty(dest);
 
 		const { repo } = this;
-
 		const dir = path.join(base, repo.site, repo.user, repo.name);
-
 		if (this.mode === 'tar') {
 			await this._cloneWithTar(dir, dest);
 		} else {
@@ -267,9 +265,9 @@ class Wigit extends EventEmitter {
 
 		const file = `${dir}/${hash}.tar.gz`;
 		const url =
-			repo.site === 'gitlab'
+			repo.site === 'gitlab.com'
 				? `${repo.url}/repository/archive.tar.gz?ref=${hash}`
-				: repo.site === 'bitbucket'
+				: repo.site === 'bitbucket.org'
 				? `${repo.url}/get/${hash}.tar.gz`
 				: `${repo.url}/archive/${hash}.tar.gz`;
 
@@ -323,11 +321,15 @@ class Wigit extends EventEmitter {
 	}
 
 	async _cloneWithGit(dir, dest) {
+		console.log(`git clone ${this.repo.ssh} ${dest}`);
 		await exec(`git clone ${this.repo.ssh} ${dest}`);
+		console.log(`rm -rf ${path.resolve(dest, '.git')}`);
 		await exec(`rm -rf ${path.resolve(dest, '.git')}`);
 	}
 	async _cloneWithGithttp(dir, dest) {
+		console.log(`git clone ${this.repo.url}.git ${dest}`);
 		await exec(`git clone ${this.repo.url}.git ${dest}`);
+		console.log(`rm -rf ${path.resolve(dest, '.git')}`);
 		await exec(`rm -rf ${path.resolve(dest, '.git')}`);
 	}
 }
@@ -343,15 +345,14 @@ function parse(src) {
 			code: 'BAD_SRC'
 		});
 	}
-
-	const domain = (match[2] || match[3] || match[4] || 'git.srv.ourwill.cn')
-	const site = domain.replace(
-		/\.(com|org|cn)$/,
-		''
-	);
-	if (!supported.has(domain)) {
+	const site = (match[2] || match[3] || match[4] || 'git.srv.ourwill.cn')
+	// const site = domain.replace(
+	// 	/\.(com|org|cn)$/,
+	// 	''
+	// );
+	if (!supported.has(site)) {
 		throw new WigitError(
-			`wigit supports GitHub, GitLab, Sourcehut and BitBucket`,
+			`wigit supports GitHub, GitLab, Sourcehut and BitBucket, receive ${site}`,
 			{
 				code: 'UNSUPPORTED_HOST'
 			}
@@ -366,10 +367,10 @@ function parse(src) {
 	// const domain = `${label}.${
 	// 	label === 'bitbucket' ? 'org' : site === 'git.sr.ht' ? '' : 'com'
 	// }`;
-	const url = `${protocol}://${domain}/${user}/${name}`;
-	const ssh = `git@${domain}:${user}/${name}`;
+	const url = `${protocol}://${site}/${user}/${name}`;
+	const ssh = `git@${site}:${user}/${name}`;
 
-	const mode = supported.has(domain) ? 'tar' : 'git';
+	const mode = supported.has(site) ? 'tar' : 'git';
 
 	return { protocol, site, user, name, ref, url, ssh, subdir, mode };
 }
@@ -430,6 +431,7 @@ async function fetchRefs(repo) {
 
 function updateCache(dir, repo, hash, cached) {
 	// update access logs
+	console.log(dir, repo, hash, cached);
 	const logs = tryRequire(path.join(dir, 'access.json')) || {};
 	logs[repo.ref] = new Date().toISOString();
 	fs.writeFileSync(

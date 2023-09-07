@@ -33,32 +33,29 @@ async function main() {
 		// interactive mode
 
 		const accessLookup = new Map();
-
-		glob(`**/access.json`, { cwd: base }).forEach(file => {
-			const [host, user, repo] = file.split(path.sep);
-
-			const json = fs.readFileSync(`${base}/${file}`, 'utf-8');
-			const logs = JSON.parse(json);
-
-			Object.entries(logs).forEach(([ref, timestamp]) => {
-				const id = `${host}:${user}/${repo}#${ref}`;
-				accessLookup.set(id, new Date(timestamp).getTime());
+		let choices = [];
+		try{
+			glob(`**/access.json`, { cwd: base }).forEach(file => {
+				const [host, user, repo] = file.split(path.sep);
+				const json = fs.readFileSync(`${base}/${file}`, 'utf-8');
+				const logs = JSON.parse(json);
+				Object.entries(logs).forEach(([ref, timestamp]) => {
+					const id = `${host}:${user}/${repo}#${ref}`;
+					accessLookup.set(id, new Date(timestamp).getTime());
+				});
 			});
-		});
-
-		const getChoice = file => {
-			const [host, user, repo] = file.split(path.sep);
-
-			return Object.entries(tryRequire(`${base}/${file}`)).map(
-				([ref, hash]) => ({
-					name: hash,
-					message: `${host}:${user}/${repo}#${ref}`,
-					value: `${host}:${user}/${repo}#${ref}`
-				})
-			);
-		};
-
-		const choices = glob(`**/map.json`, { cwd: base })
+			const getChoice = file => {
+				const [url, user, repo] = file.split(path.sep);
+				return Object.entries(tryRequire(`${base}/${file}`)).map(
+					([ref, hash]) => ({
+						name: hash,
+						message: `${url}/${user}/${repo}#${ref}`,
+						value: `${url}/${user}/${repo}#${ref}`
+					})
+				);
+			};
+			
+			choices.push(...glob(`**/map.json`, { cwd: base })
 			.map(getChoice)
 			.reduce(
 				(accumulator, currentValue) => accumulator.concat(currentValue),
@@ -69,8 +66,23 @@ async function main() {
 				const bTime = accessLookup.get(b.value) || 0;
 
 				return bTime - aTime;
-			});
-
+			}))
+		} catch(error){
+			console.log('Cache not found', error);
+		}
+			
+		choices.unshift(...[
+			{
+				message: 'vue-spa(后台管理)',
+				value: 'lufeng/vue-spa-temp#HEAD'
+			},
+			{
+				message: 'php-mvc(官网项目)',
+				value: 'https://github.com/suconghou/mvc'
+			}
+		])
+		
+		
 		const options = await enquirer.prompt([
 			{
 				type: 'autocomplete',
@@ -85,14 +97,8 @@ async function main() {
 				name: 'dest',
 				message: 'Destination directory?',
 				initial: '.'
-			},
-			{
-				type: 'toggle',
-				name: 'cache',
-				message: 'Use cached version?'
 			}
 		]);
-
 		const empty =
 			!fs.existsSync(options.dest) || fs.readdirSync(options.dest).length === 0;
 
@@ -113,7 +119,8 @@ async function main() {
 
 		run(options.src, options.dest, {
 			force: true,
-			cache: options.cache
+			verbose: true,
+			cache: false
 		});
 	} else {
 		run(src, dest, args);
