@@ -14,8 +14,7 @@
 		"dev": "npm run build -- --watch",
 		"build": "rollup -c",
 		"test": "mocha",
-		"pretest": "npm run build",
-		"prepublishOnly": "npm test"
+		"pretest": "npm run build"
 	},
 	"keywords": [
 		"scaffolding",
