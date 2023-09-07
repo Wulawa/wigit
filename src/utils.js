@@ -9,11 +9,11 @@ import Agent from 'https-proxy-agent';
 import { rimrafSync, copydirSync } from 'sander';
 
 const tmpDirName = 'tmp';
-const degitConfigName = 'degit.json';
+const wigitConfigName = 'wigit.json';
 
-export { degitConfigName };
+export { wigitConfigName };
 
-export class DegitError extends Error {
+export class WigitError extends Error {
 	constructor(message, opts) {
 		super(message);
 		Object.assign(this, opts);
@@ -115,7 +115,7 @@ export function unstashFiles(dir, dest) {
 			copydirSync(tmpFile).to(targetPath);
 			rimrafSync(tmpFile);
 		} else {
-			if (filename !== 'degit.json') {
+			if (filename !== 'wigit.json') {
 				fs.copyFileSync(tmpFile, targetPath);
 			}
 			fs.unlinkSync(tmpFile);
@@ -124,4 +124,4 @@ export function unstashFiles(dir, dest) {
 	rimrafSync(tmpDir);
 }
 
-export const base = path.join(homeOrTmp, '.degit');
+export const base = path.join(homeOrTmp, '.wigit');

@@ -5,24 +5,24 @@ import EventEmitter from 'events';
 import chalk from 'chalk';
 import { rimrafSync } from 'sander';
 import {
-	DegitError,
+	WigitError,
 	exec,
 	fetch,
 	mkdirp,
 	tryRequire,
 	stashFiles,
 	unstashFiles,
-	degitConfigName,
+	wigitConfigName,
 	base
 } from './utils.js';
 
 const validModes = new Set(['tar', 'git']);
 
-export default function degit(src, opts) {
-	return new Degit(src, opts);
+export default function wigit(src, opts) {
+	return new Wigit(src, opts);
 }
 
-class Degit extends EventEmitter {
+class Wigit extends EventEmitter {
 	constructor(src, opts = {}) {
 		super();
 
@@ -51,7 +51,7 @@ class Degit extends EventEmitter {
 					{ force: true },
 					{ cache: action.cache, verbose: action.verbose }
 				);
-				const d = degit(action.src, opts);
+				const d = wigit(action.src, opts);
 
 				d.on('info', event => {
 					console.error(
@@ -75,7 +75,7 @@ class Degit extends EventEmitter {
 	}
 
 	_getDirectives(dest) {
-		const directivesPath = path.resolve(dest, degitConfigName);
+		const directivesPath = path.resolve(dest, wigitConfigName);
 		const directives =
 			tryRequire(directivesPath, { clearCache: true }) || false;
 		if (directives) {
@@ -167,7 +167,7 @@ class Degit extends EventEmitter {
 						message: `destination directory is not empty. Using options.force, continuing`
 					});
 				} else {
-					throw new DegitError(
+					throw new WigitError(
 						`destination directory is not empty, aborting. Use options.force to override`,
 						{
 							code: 'DEST_NOT_EMPTY'
@@ -259,7 +259,7 @@ class Degit extends EventEmitter {
 
 		if (!hash) {
 			// TODO 'did you mean...?'
-			throw new DegitError(`could not find commit hash for ${repo.ref}`, {
+			throw new WigitError(`could not find commit hash for ${repo.ref}`, {
 				code: 'MISSING_REF',
 				ref: repo.ref
 			});
@@ -339,7 +339,7 @@ function parse(src) {
 		src
 	);
 	if (!match) {
-		throw new DegitError(`could not parse ${src}`, {
+		throw new WigitError(`could not parse ${src}`, {
 			code: 'BAD_SRC'
 		});
 	}
@@ -350,8 +350,8 @@ function parse(src) {
 		''
 	);
 	if (!supported.has(domain)) {
-		throw new DegitError(
-			`degit supports GitHub, GitLab, Sourcehut and BitBucket`,
+		throw new WigitError(
+			`wigit supports GitHub, GitLab, Sourcehut and BitBucket`,
 			{
 				code: 'UNSUPPORTED_HOST'
 			}
@@ -404,7 +404,7 @@ async function fetchRefs(repo) {
 
 				const match = /refs\/(\w+)\/(.+)/.exec(ref);
 				if (!match)
-					throw new DegitError(`could not parse ${ref}`, {
+					throw new WigitError(`could not parse ${ref}`, {
 						code: 'BAD_REF'
 					});
 
@@ -420,7 +420,7 @@ async function fetchRefs(repo) {
 				};
 			});
 	} catch (error) {
-		throw new DegitError(`could not fetch remote ${repo.url}`, {
+		throw new WigitError(`could not fetch remote ${repo.url}`, {
 			code: 'COULD_NOT_FETCH',
 			url: repo.url,
 			original: error
