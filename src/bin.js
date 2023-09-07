@@ -129,12 +129,23 @@ function run(src, dest, args) {
 
 	d.on('warn', event => {
 		console.error(
+			chalk.yellow(`! ${event.message.replace('options.', '--')}`)
+		);
+	});
+	d.on('error', event => {
+		console.error(
 			chalk.magenta(`! ${event.message.replace('options.', '--')}`)
 		);
 	});
+	d.on('success', event => {
+		console.error(
+			chalk.green(`👌 ${event.message.replace('options.', '--')}`)
+		);
+	})
 
 	d.clone(dest).catch(err => {
 		console.error(chalk.red(`! ${err.message.replace('options.', '--')}`));
+	}).finally(() => {
 		process.exit(1);
 	});
 }

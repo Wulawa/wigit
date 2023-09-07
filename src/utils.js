@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import homeOrTmp from 'home-or-tmp';
 import https from 'https';
+import http from 'http';
 import child_process from 'child_process';
 import URL from 'url';
 import Agent from 'https-proxy-agent';
@@ -56,7 +57,7 @@ export function mkdirp(dir) {
 	}
 }
 
-export function fetch(url, dest, proxy) {
+export function fetch(url, dest, proxy, protocol = 'https') {
 	return new Promise((fulfil, reject) => {
 		let options = url;
 
@@ -68,9 +69,8 @@ export function fetch(url, dest, proxy) {
 				agent: new Agent(proxy)
 			};
 		}
-
-		https
-			.get(options, response => {
+		const request = protocol === 'https' ? https : http;
+		request.get(options, response => {
 				const code = response.statusCode;
 				if (code >= 400) {
 					reject({ code, message: response.statusMessage });

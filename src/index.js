@@ -97,8 +97,7 @@ class Degit extends EventEmitter {
 		} else {
 			await this._cloneWithGit(dir, dest);
 		}
-
-		this._info({
+		this._success({
 			code: 'SUCCESS',
 			message: `cloned ${chalk.bold(repo.user + '/' + repo.name)}#${chalk.bold(
 				repo.ref
@@ -193,11 +192,16 @@ class Degit extends EventEmitter {
 	_warn(info) {
 		this.emit('warn', info);
 	}
-
+	_error(info) {
+		this.emit('error', info);
+	}
+	_success(info) {
+		this.emit('success', info);
+	}
 	_verbose(info) {
 		if (this.verbose) this._info(info);
 	}
-
+	
 	async _getHash(repo, cached) {
 		try {
 			const refs = await fetchRefs(repo);
@@ -291,41 +295,47 @@ class Degit extends EventEmitter {
 						code: 'DOWNLOADING',
 						message: `downloading ${url} to ${file}`
 					});
+					await fetch(url, file, this.proxy, repo.protocol);
+					updateCache(dir, repo, hash, cached);
 
-					await fetch(url, file, this.proxy);
+					this._verbose({
+						code: 'EXTRACTING',
+						message: `extracting ${
+							subdir ? repo.subdir + ' from ' : ''
+						}${file} to ${dest}`
+					});
+
+					mkdirp(dest);
+					await untar(file, dest, subdir);
 				}
 			}
 		} catch (err) {
-			throw new DegitError(`could not download ${url}`, {
-				code: 'COULD_NOT_DOWNLOAD',
-				url,
-				original: err
+			this._warn({
+				code: 'warn',
+				message: `download ${chalk.bold(url)} failed, automatically downgrade "git clone"`,
+				repo,
+				dest
 			});
+			await this._cloneWithGithttp(dir, dest);
 		}
 
-		updateCache(dir, repo, hash, cached);
-
-		this._verbose({
-			code: 'EXTRACTING',
-			message: `extracting ${
-				subdir ? repo.subdir + ' from ' : ''
-			}${file} to ${dest}`
-		});
-
-		mkdirp(dest);
-		await untar(file, dest, subdir);
+		
 	}
 
 	async _cloneWithGit(dir, dest) {
 		await exec(`git clone ${this.repo.ssh} ${dest}`);
 		await exec(`rm -rf ${path.resolve(dest, '.git')}`);
 	}
+	async _cloneWithGithttp(dir, dest) {
+		await exec(`git clone ${this.repo.url}.git ${dest}`);
+		await exec(`rm -rf ${path.resolve(dest, '.git')}`);
+	}
 }
 
-const supported = new Set(['github', 'gitlab', 'bitbucket', 'git.sr.ht']);
+const supported = new Set(['github.com', 'gitlab.com', 'bitbucket.org', 'git.sr.ht', 'git.srv.ourwill.cn']);
 
 function parse(src) {
-	const match = /^(?:(?:https:\/\/)?([^:/]+\.[^:/]+)\/|git@([^:/]+)[:/]|([^/]+):)?([^/\s]+)\/([^/\s#]+)(?:((?:\/[^/\s#]+)+))?(?:\/)?(?:#(.+))?/.exec(
+	const match = /^(?:(?:(http|https):\/\/)?([^:/]+\.[^:/]+)\/|git@([^:/]+)[:/]|([^/]+):)?([^/\s]+)\/([^/\s#]+)(?:((?:\/[^/\s#]+)+))?(?:\/)?(?:#(.+))?/.exec(
 		src
 	);
 	if (!match) {
@@ -334,11 +344,12 @@ function parse(src) {
 		});
 	}
 
-	const site = (match[1] || match[2] || match[3] || 'github').replace(
-		/\.(com|org)$/,
+	const domain = (match[2] || match[3] || match[4] || 'git.srv.ourwill.cn')
+	const site = domain.replace(
+		/\.(com|org|cn)$/,
 		''
 	);
-	if (!supported.has(site)) {
+	if (!supported.has(domain)) {
 		throw new DegitError(
 			`degit supports GitHub, GitLab, Sourcehut and BitBucket`,
 			{
@@ -346,21 +357,21 @@ function parse(src) {
 			}
 		);
 	}
+	const protocol = match[1] || 'http';
+	const user = match[5];
+	const name = match[6].replace(/\.git$/, '');
+	const subdir = match[7];
+	const ref = match[8] || 'HEAD';
 
-	const user = match[4];
-	const name = match[5].replace(/\.git$/, '');
-	const subdir = match[6];
-	const ref = match[7] || 'HEAD';
-
-	const domain = `${site}.${
-		site === 'bitbucket' ? 'org' : site === 'git.sr.ht' ? '' : 'com'
-	}`;
-	const url = `https://${domain}/${user}/${name}`;
+	// const domain = `${label}.${
+	// 	label === 'bitbucket' ? 'org' : site === 'git.sr.ht' ? '' : 'com'
+	// }`;
+	const url = `${protocol}://${domain}/${user}/${name}`;
 	const ssh = `git@${domain}:${user}/${name}`;
 
-	const mode = supported.has(site) ? 'tar' : 'git';
+	const mode = supported.has(domain) ? 'tar' : 'git';
 
-	return { site, user, name, ref, url, ssh, subdir, mode };
+	return { protocol, site, user, name, ref, url, ssh, subdir, mode };
 }
 
 async function untar(file, dest, subdir = null) {
